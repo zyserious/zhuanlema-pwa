@@ -4,3 +4,4 @@ set -e
 cd "$(dirname "$0")"
 node extract.js
 node cases.js
+node gift.js

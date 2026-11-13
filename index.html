@@ -78,6 +78,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* countdown */
 .cd-label{font-weight:800;font-size:15px;color:var(--muted)}
 .cd-time{font-weight:900;font-size:44px;letter-spacing:-.5px;margin:2px 0 14px}
+/* 倒计时下面的鼓励语：按班次/时段换，夜班售后高峰用暖色 */
+.cd-cheer{margin:-8px 0 14px;font-size:14px;font-weight:800;color:var(--muted);line-height:1.5}
+.cd-cheer.warm{color:var(--accent)}
 .bar{position:relative;height:22px;border:2.5px solid var(--ink);border-radius:99px;background:var(--soft);overflow:visible}
 .bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--accent);width:0;transition:width .4s}
 .bar-mark{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--card);border:2.5px solid var(--ink)}
@@ -438,6 +441,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
   <div class="card" id="cdCard">
     <div class="cd-label" id="cdLabel">距离下班还有</div>
     <div class="cd-time num" id="cdTime">00:00:00</div>
+    <div class="cd-cheer" id="cdCheer"></div>
     <div id="barWrap">
       <div class="bar-top"><span>今日进度</span><b class="num" id="barPct"></b></div>
       <div class="bar" id="bar"><div class="bar-fill" id="barFill"></div></div>
@@ -718,7 +722,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn ghost" id="clearWishes">清空愿望和存钱罐</button>
     <button class="btn ghost" id="resetSettings">恢复默认设置</button>
   </div>
-  <p class="foot">今天赚了吗 · v2.4 数据保护+跨设备同步 · 2026-11-13</p>
+  <p class="foot">今天赚了吗 · v2.5 时段鼓励语 · 2026-11-13</p>
 </section>
 </main>
 
@@ -738,16 +742,93 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
 <script>
 /* ---------- gift config（专属版，想改只动这里）---------- */
 const GIFT = {
-  to: 'demo',    // ← 收礼人的昵称，改成你自己的
-  from: '想天天给你花钱的那个人',   // ← 署名
-  lines: [
-    '这不是工资，是我给你的零花钱进度条 🧡',
-    '每一秒都在涨，就像我对你的喜欢。',
-    '钱是假的，想给你花钱的心是真的。',
-    '好好上班，攒够愿望我请客。',
-    '搬砖是为了生活，生活里要有你。',
-    '今天也要开开心心，钱和爱你都收下。'
-  ]
+  to: 'demo',                   // ← 收礼人的昵称，改成你自己的
+  from: 'your-name',            // ← 落款（页面显示成 ——your-name）
+  /* 文案按「现在处在什么时段」切换：
+     · 白班（工作日白天）多是产品咨询，问得多但讲道理，节奏稳
+     · 夜班和休息日多是售后，人多事杂，会遇到不讲理的，情绪最容易崩
+     cheer = 倒计时下面那行短句（每隔一阵换一句）
+     word  = 顶部「给 收礼人」那段话（换得更慢一些） */
+  scenes: {
+    pre: {
+      cheer: [
+        '再赖五分钟也行，奶茶钱我先帮你存着',
+        '吃口东西再出门，别空着肚子撑到中午',
+        '今天只有一个你，别太拼'
+      ],
+      word: [
+        '上班前先把心情放平。今天不管遇到谁，回家都有人等你。',
+        '你不需要今天表现完美，你只需要今天平安下班。',
+        '出门前喝口水。今天就算被气到，也别气到自己。'
+      ]
+    },
+    day: {
+      cheer: [
+        '这个点在问产品的，都是真想买的人',
+        '上午最容易困，喝口水，我盯着余额在涨',
+        '白班的咨询最好聊，你答得比说明书清楚'
+      ],
+      word: [
+        '白天的咨询都是真想买东西的人。你多说一句，人家就多信一分 —— 这不是客服，是你在帮人下决心。',
+        '同一个问题一上午被问几十遍还能耐心答，这一点我永远学不会。',
+        '你说话那么有耐心，隔着一块屏幕都能让人安心。'
+      ]
+    },
+    night1: {
+      cheer: [
+        '售后开始了，先给自己留口气',
+        '刚换到售后这波最凶，回慢一点没关系',
+        '喝口水再回下一条，不急这三秒'
+      ],
+      word: [
+        '售后一开场就是硬仗。记住：对方在气头上，骂的不是你，是他自己那点糟心事。',
+        '从现在起，回得慢一点是应该的。你不是机器人，你有权先喘口气再回复。',
+        '碰到第一个不讲理的，别急着讲道理。先把话接下来，剩下的慢慢来。'
+      ]
+    },
+    night2: {
+      cheer: [
+        '遇到神人不是你的问题，是对方的',
+        '气到了就深呼吸三下，再回下一句',
+        '他骂的其实不是你，是他自己的生活',
+        '实在气不过，起来接杯水再回来',
+        '今天最有耐心的人是你，我看见了'
+      ],
+      word: [
+        '我知道这个点最难熬：单子堆着，人又难缠。但你只是在按规则办事，不是在替谁的人生负责。',
+        '奇葩年年有，今晚特别多。你不用赢他们，你只要熬过这个班。',
+        '如果有人对你阴阳怪气，那是他缺教养，不是你做错了什么。',
+        '你回一句「抱歉给您带来不便」，面子已经给足了。剩下的不该你担。',
+        '你没有义务接住所有人的情绪。做到流程要求的那一步，就够了。',
+        '别把别人的情绪背回家。工位上那些话，出了那道门就作废。',
+        '你没有变差，你只是今天遇到了很差的人。这两件事不一样。'
+      ]
+    },
+    rest: {
+      cheer: [
+        '休息日就别看工作群了',
+        '今天躺着就是正经事',
+        '真被叫去干活，记得点「我还在加班」'
+      ],
+      word: [
+        '今天不用上班，工作群的消息可以先不看。天塌不下来。',
+        '休息日还被叫去干活的话，记得点上面的加班记录，钱我帮你算清楚。',
+        '你的休息日不是公司的备用库存，该静音就静音。'
+      ]
+    },
+    done: {
+      cheer: [
+        '收工了。今天的钱和委屈都到此为止',
+        '下班。剩下的时间归我',
+        '走快点，别回头'
+      ],
+      word: [
+        '今天结束了。赚到的钱我记着，受的气就丢在工位上。',
+        '下班了。不管今天遇到多离谱的顾客，你现在已经安全了。',
+        '回来了就好。今天谁惹你不高兴，跟我说，我替你骂他。'
+      ]
+    }
+  }
 };
 /* ---------- storage ---------- */
 const mem = {};
@@ -933,6 +1014,47 @@ function status(now){
   if(lunchValid() && sec >= hm(S.lunchStart) && sec < hm(S.lunchEnd)) return S.lunchPaid ? 'lunchPaid' : 'lunch';
   return 'work';
 }
+
+/* ---------- gift banner（专属版）----------
+   文案跟着「现在是什么时段」变：
+   白班 / 夜班前段 / 夜班后段（售后高峰）/ 休息日 / 上班前 / 下班后 */
+const NIGHT_PEAK = 19 * 3600;   // 夜班 19 点后算售后高峰，最忙也最容易受气
+function giftScene(now){
+  const st = status(now), sh = shiftOf(now), sec = secOfDay(now);
+  if(sh === 'x' || st === 'off') return 'rest';
+  if(st === 'before') return 'pre';
+  if(st === 'after') return 'done';
+  if(sh === 'n') return sec < NIGHT_PEAK ? 'night1' : 'night2';
+  return 'day';
+}
+let giftState = { cheer: '', word: '', warm: false };
+function renderGift(now){
+  const key = giftScene(now);
+  const sc = GIFT.scenes[key] || GIFT.scenes.day;
+  const mins = Math.floor(secOfDay(now) / 60);
+  const cheer = sc.cheer[Math.floor(mins / 15) % sc.cheer.length];   // 每 15 分钟换一句
+  const word  = sc.word[Math.floor(mins / 25) % sc.word.length];     // 每 25 分钟换一段
+  const warm  = key === 'night2';                                     // 售后高峰用暖色，看着更像有人陪着
+  if(cheer !== giftState.cheer){
+    giftState.cheer = cheer;
+    const el = $('cdCheer');
+    if(el){ el.textContent = cheer; el.classList.toggle('warm', warm); }
+  } else if(warm !== giftState.warm){
+    const el = $('cdCheer');
+    if(el) el.classList.toggle('warm', warm);
+  }
+  if(word !== giftState.word){
+    giftState.word = word;
+    const el = $('giftLine');
+    if(el) el.textContent = word;
+  }
+  giftState.warm = warm;
+}
+(function(){
+  $('giftName').textContent = GIFT.to;
+  $('giftSign').textContent = '——' + GIFT.from;
+  renderGift(new Date());
+})();
 function daysToPayday(now){
   const dim = (y, m) => new Date(y, m+1, 0).getDate();
   const y = now.getFullYear(), m = now.getMonth(), today = dayStart(now);
@@ -1097,6 +1219,7 @@ function tickToday(now, jumped){
   const friday = now.getDay() === 5 && sec >= 12*3600 && ['work','lunch','lunchPaid'].includes(st);
   document.body.classList.toggle('friday', friday);
   $('fridayBanner').classList.toggle('hidden', !friday);
+  renderGift(now);   // 鼓励语按当前时段切换
 
   // conversion
   const units = earned / S.unitPrice, fl = Math.floor(units);
@@ -2139,13 +2262,7 @@ showTab('today');
 setInterval(tick, 200);
 document.addEventListener('visibilitychange', () => { if(!document.hidden){ lastTick = 0; tick(true); } });
 
-/* ---------- gift banner（专属版）---------- */
-(function(){
-  $('giftName').textContent = GIFT.to;
-  $('giftSign').textContent = '—— ' + GIFT.from;
-  const day = Math.floor(Date.now() / 86400000);
-  $('giftLine').textContent = GIFT.lines[day % GIFT.lines.length];
-})();
+
 
 /* ---------- 班次提醒：Web Push + 日历导出 ---------- */
 const PUSH_API = './api';
@@ -2617,7 +2734,7 @@ $('pipBtn').onclick = openPip;
       reloading = true;
       location.reload();
     });
-    const check = () => navigator.serviceWorker.register('sw.js?v=8', { updateViaCache: 'none' })
+    const check = () => navigator.serviceWorker.register('sw.js?v=9', { updateViaCache: 'none' })
       .then(reg => reg.update().catch(() => {}))
       .catch(() => {});
     check();
