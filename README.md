@@ -65,6 +65,8 @@ zhuanlema-web/
 ├─ docker-compose.yaml     # 两个容器，一条命令起服务
 ├─ push/
 │  └─ server.py            # 11 个 HTTP 接口（标准库 + pywebpush）
+├─ docs/
+│  └─ deploy.md            # 无公网 IP 的 HTTPS 部署 SOP（可复用到其他项目）
 └─ tests/                  # 同步逻辑回归测试（6 场景）
    ├─ harness.js  cases.js  extract.js  run.sh
 ```
@@ -86,7 +88,7 @@ curl -s -X POST https://$dom/api/login \
   -d '{"username":"demo","password":"demo"}'
 ```
 
-外网暴露用 Cloudflare Tunnel，**不需要公网 IP，也不需要开路由器端口**。完整步骤（含方案对比与踩坑清单）见 `docs/`；最小配置：Cloudflare 建一条 Tunnel → DNS 加 CNAME 指向 `<TUNNEL_ID>.cfargotunnel.com` → `config.yml` 的 ingress 加一条 `hostname → http://127.0.0.1:8090`。
+外网暴露用 Cloudflare Tunnel，**不需要公网 IP，也不需要开路由器端口**。完整步骤（含方案对比与踩坑清单）见 [`docs/deploy.md`](docs/deploy.md)；最小配置：Cloudflare 建一条 Tunnel → DNS 加 CNAME 指向 `<TUNNEL_ID>.cfargotunnel.com` → `config.yml` 的 ingress 加一条 `hostname → http://127.0.0.1:8090`。
 
 ## 关键设计取舍
 
