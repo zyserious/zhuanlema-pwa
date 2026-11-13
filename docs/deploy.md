@@ -68,6 +68,8 @@ curl -I https://app.example.com     # 期望 200
 - [ ] 反向代理把 `/api/*` **同源**转发到后端 → 不新开子域，就没有 CORS、没有预检请求
 - [ ] 静态资源与 API 同源 → 前端不需要配 baseURL，token 也好处理
 - [ ] html / sw / manifest 发 `Cache-Control: no-cache`，图标长缓存（见 [README 的缓存章节](../README.md#三个值得一读的坑)）
+- [ ] 容器 `restart: always` + 依赖装进挂载目录 + healthcheck + 日志轮转（见[下文](#让服务在宿主机重启后自己回来)）
+- [ ] **做过一次真实重启测试**，记下恢复用时
 - [ ] 国内访问走国际链路，速度一般但可用；**不要**把它用于需要备案的正式商业站点
 
 ## 踩过的坑
@@ -112,15 +114,103 @@ ingress 指向宿主机服务要用 `host.docker.internal` 或宿主内网 IP。
 
 **几条硬习惯**
 
-- `restart: unless-stopped`，保证机器重启后服务自己起来
+- `restart: always`（不是 `unless-stopped`），保证机器重启后服务自己起来
 - 容器只监听内网端口，对外由 Tunnel 暴露
 - 改宿主机上被挂载的代码后必须 `docker restart <容器>`，容器的进程不会自动感知
 - 每次改数据文件前先备份，服务端自带写入前快照（见 [sync.md](sync.md)）
 - 部署完必做健康检查：`curl /api/health` + 一次真实登录
 - 排查线上问题优先看容器日志，比猜快得多
+- 每个容器都配日志轮转，否则跑几个月把磁盘写满
 
 **容器网络的坑**
 容器内的 `127.0.0.1` 是容器自己。指向宿主机服务要用 `host.docker.internal` 或宿主内网 IP。
+
+## 让服务在宿主机重启后自己回来
+
+家用服务器会不定时重启（系统更新、断电、手动重启）。要让服务自己回来，需要同时满足四件事——少了任何一件，重启后都是打不开的。
+
+### 1. Docker 守护进程本身要开机自启
+
+这是最容易漏的一层，而且它在 Docker 外面。多数 NAS 系统在应用中心里有个「开机自启」开关；群晖/威联通/Linux 上是 `systemctl enable docker`。
+
+**自检**：重启一次，`docker ps` 有输出就说明 Docker 起来了。
+
+### 2. 容器要有重启策略
+
+| 策略 | 行为 | 用在哪 |
+|---|---|---|
+| `no`（默认） | 不自动重启 | 一次性任务 |
+| `on-failure` | 非零退出才重启 | 批处理 |
+| `unless-stopped` | 自动重启，但手动 `stop` 过就不再起 | 一般服务 |
+| `always` | **无条件重启**，宿主机重启后一定拉起 | 常驻服务 |
+
+个人服务建议 `always`：你想的是「它必须一直活着」，而不是「我上次是不是手动停过」。
+
+### 3. 启动过程不能依赖外部网络
+
+这是最隐蔽的坑。很多人把依赖安装写在启动命令里：
+
+```yaml
+command: sh -c "pip install pywebpush && python app.py"
+```
+
+宿主机刚重启时网络往往还没就绪，`pip install` 失败 → 进程退出 → 容器重启 → 再失败，可能循环几分钟甚至更久。
+
+**解决：把依赖装进挂载目录，让它只在第一次联网。**
+
+```yaml
+environment:
+  - PYTHONPATH=/pylibs        # 依赖从这里加载
+volumes:
+  - ./pylibs:/pylibs          # 挂在宿主机，重建容器也不丢
+command: >
+  sh -c "for i in 1 2 3 4 5 6; do
+           python -c 'import pywebpush' 2>/dev/null && break;
+           pip install --no-cache-dir -q --target=/pylibs pywebpush 2>/dev/null && break;
+           echo \"[boot] 等待网络，第 \$i 次重试\"; sleep 8;
+         done; exec python /app/server.py"
+```
+
+效果：首次装完以后，重启只需要几秒，且**完全不需要网络**。
+
+实测对比：改造前容器重启要等 `pip` 拉包（几十秒且依赖网络），改造后 **4 秒**恢复。
+
+### 4. 要有能判断「真的活着」的探针
+
+容器 `RUNNING` 不等于服务可用——进程可能卡死、线程池耗尽、磁盘写满。
+
+```yaml
+healthcheck:
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 180s      # 首次启动要装依赖，给足时间
+```
+
+注意两件事：
+
+- **alpine 镜像里没有 curl**，用 `python -c` 或 `wget --spider`
+- **`healthcheck` 自己不会重启容器**，它只标记 `unhealthy`。要自动重启，得再配一个 [`autoheal`](https://github.com/willfarrell/docker-autoheal) 之类的看门狗
+
+### 部署完必须做一次真实重启测试
+
+配置写完不等于能自启。**手动重启一次容器，计时看多久恢复**：
+
+```bash
+docker restart <容器名>
+# 然后每 2 秒 curl 一次健康接口，记下恢复用时
+```
+
+如果恢复要几十秒、或者日志里出现 `pip install`，说明还在联网装依赖，第 3 条没做到位。
+
+### 排查顺序（重启后打不开）
+
+1. `docker ps` 有没有这个容器 → 没有，是 Docker 自己没起来（第 1 条）
+2. 容器在但 `EXITED`/`RESTARTING` → `docker logs` 看退出原因（多半是第 3 条）
+3. 容器 RUNNING 但访问 502 → 反向代理找不到后端，检查容器名/端口，`docker restart` 反代容器
+4. 完全访问不到（不是 502，是超时）→ 隧道容器死了，`docker ps` 看 cloudflared
+5. 都正常但只有页面不对 → 缓存问题，见 [caching.md](caching.md)
 
 ## 这套链路真正省下的是什么
 

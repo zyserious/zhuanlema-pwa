@@ -2,7 +2,8 @@ services:
   zhuanlema-web:
     image: docker.1ms.run/library/caddy:alpine
     container_name: zhuanlema-web
-    restart: unless-stopped
+    # always：宿主机重启后一定会被拉起，即使之前手动停过
+    restart: always
     ports:
       - "8090:80"
     volumes:
@@ -10,20 +11,54 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
       - zhuanlema-push
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   zhuanlema-push:
     image: docker.1ms.run/library/python:3.12-alpine
     container_name: zhuanlema-push
-    restart: unless-stopped
+    restart: always
     environment:
       - TZ=Asia/Shanghai
       - PORT=8000
       - DATA_FILE=/data/subs.json
       - ICS_DIR=/data/ics
+      # 依赖装进挂载目录，重建容器后无需联网重装
+      - PYTHONPATH=/pylibs
       - VAPID_SUBJECT=${VAPID_SUBJECT}
       - VAPID_PUBLIC=${VAPID_PUBLIC}
       - VAPID_PRIVATE_RAW=${VAPID_PRIVATE_RAW}
-    command: sh -c "pip install --no-cache-dir -q pywebpush && exec python /app/server.py"
+    # 启动分三种情况：
+    #   1) /pylibs 里已有依赖 → 直接起服务，不联网（重启只需几秒）
+    #   2) 依赖缺失（首次部署 / 换机器）→ 装到挂载目录
+    #   3) 网络未就绪（宿主机刚重启）→ 重试 6 次；仍失败则退出，由 restart 策略再拉一轮
+    command: >
+      sh -c "for i in 1 2 3 4 5 6; do
+               python -c 'import pywebpush' 2>/dev/null && break;
+               pip install --no-cache-dir -q --target=/pylibs pywebpush 2>/dev/null && break;
+               echo \"[boot] 依赖未就绪，等待网络，第 \$i 次重试\"; sleep 8;
+             done; exec python /app/server.py"
     volumes:
       - ./push/server.py:/app/server.py:ro
       - ./pushdata:/data
+      - ./pylibs:/pylibs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 180s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
