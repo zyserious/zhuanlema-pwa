@@ -22,3 +22,6 @@ Thumbs.db
 !icons/*.png
 notes/
 docs/private/
+
+# 测试提取产物
+tests/.app.js
