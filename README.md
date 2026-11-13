@@ -65,8 +65,12 @@ zhuanlema-web/
 ├─ docker-compose.yaml     # 两个容器，一条命令起服务
 ├─ push/
 │  └─ server.py            # 11 个 HTTP 接口（标准库 + pywebpush）
-├─ docs/
-│  └─ deploy.md            # 无公网 IP 的 HTTPS 部署 SOP（可复用到其他项目）
+├─ docs/                   # 技术文档（每个坑的根因、解法、排查顺序）
+│  ├─ deploy.md            # 无公网 IP 的 HTTPS 部署 SOP + 自托管环境注意事项
+│  ├─ caching.md           # PWA 双层缓存自锁与更新通道
+│  ├─ sync.md              # 多端数据同步的四道闸与回归测试
+│  ├─ push.md              # iOS Web Push 的准入条件与实现
+│  └─ payroll-model.md     # 排班制计薪模型改造清单
 └─ tests/                  # 同步逻辑回归测试（6 场景）
    ├─ harness.js  cases.js  extract.js  run.sh
 ```
@@ -100,6 +104,16 @@ curl -s -X POST https://$dom/api/login \
 | SW 缓存策略 | **网络优先** | 缓存优先曾导致"用户永远看到旧版"的线上故障，见下 |
 | 提醒通道 | **推送 + 日历双通道** | 推送依赖权限和厂商服务，.ics 导出不依赖任何外部通道，100% 会响 |
 | 同步权威 | **云端权威 + 设备需授权** | 时间戳单独判不了新旧，必须叠加数据完整度与同步关系 |
+
+## 技术文档
+
+| 文档 | 内容 |
+|---|---|
+| [docs/deploy.md](docs/deploy.md) | Cloudflare Tunnel 部署 SOP、方案对比、自托管环境注意事项 |
+| [docs/caching.md](docs/caching.md) | PWA 双层缓存自锁的根因、三层解法、排查顺序 |
+| [docs/sync.md](docs/sync.md) | 多端同步的四个缺陷、四道闸、6 场景回归测试 |
+| [docs/push.md](docs/push.md) | iOS 推送准入条件、VAPID 坑、链路自检技巧、降级方案 |
+| [docs/payroll-model.md](docs/payroll-model.md) | 周期性→按日模型的改造清单与高危点 |
 
 ## 三个值得一读的坑
 
