@@ -212,6 +212,21 @@ docker restart <容器名>
 4. 完全访问不到（不是 502，是超时）→ 隧道容器死了，`docker ps` 看 cloudflared
 5. 都正常但只有页面不对 → 缓存问题，见 [caching.md](caching.md)
 
+## 发布一个新版本
+
+```bash
+bash tests/run.sh            # 同步逻辑 6 场景
+bash tests/version-check.sh   # 四处版本标记 + CHANGELOG 对齐
+```
+
+1. 四处版本标记同步递增（`v.json` / 页脚 / `sw.js?v=N` / `CACHE`）
+2. [CHANGELOG.md](../CHANGELOG.md) 顶部新增一节，写「改了什么 + 为什么」
+3. 提交：`feat:` / `fix:` / `docs:` / `chore:` 前缀，正文写原因
+4. `git tag v<版本> && git push origin main --tags`
+5. 部署后用**旧数据**回归：设置项原样、排班条数不变、已迁移数据不被二次改动
+
+`version-check.sh` 存在的理由：四处版本标记漏改任何一处，用户就会停在旧版本而你以为已发布。让它在发布前报错，比事后排查「网页怎么没更新」便宜得多 —— 根因见 [caching.md](caching.md)。
+
 ## 这套链路真正省下的是什么
 
 不是时间，是**每次都不用重新做安全决策**：要不要开端口、证书怎么弄、地址会不会变。新项目上线只需要「加一条 CNAME + 加一条 ingress」，边际成本趋近于零。

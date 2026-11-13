@@ -9,7 +9,10 @@
   <img alt="Python" src="https://img.shields.io/badge/backend-Python%20stdlib-3776AB">
   <img alt="Deploy" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED">
   <img alt="Tunnel" src="https://img.shields.io/badge/expose-Cloudflare%20Tunnel-F38020">
+  <img alt="Version" src="https://img.shields.io/badge/version-v2.4-2EA44F">
 </p>
+
+每次发布都记录在 [CHANGELOG.md](CHANGELOG.md)：改了什么、为什么改、踩了什么坑。历史版本对应 git tag（`v2.4` 起开始打）。
 
 ## 它解决什么问题
 
@@ -61,6 +64,7 @@ zhuanlema-web/
 ├─ icons/
 ├─ diag.html               # 设备自诊断页（版本 / 本机数据 / 同步锚点 / 云端）
 ├─ v.json                  # 构建号，用于 CDN 缓存自愈
+├─ CHANGELOG.md            # 每个版本改了什么、为什么
 ├─ Caddyfile               # 静态站点 + /api/* 同源反代 + 分级缓存头
 ├─ docker-compose.yaml     # 两个容器，一条命令起服务
 ├─ push/
@@ -72,7 +76,9 @@ zhuanlema-web/
 │  ├─ push.md              # iOS Web Push 的准入条件与实现
 │  └─ payroll-model.md     # 排班制计薪模型改造清单
 └─ tests/                  # 同步逻辑回归测试（6 场景）
-   ├─ harness.js  cases.js  extract.js  run.sh
+   ├─ harness.js  cases.js  extract.js
+   ├─ run.sh               # 跑同步回归
+   └─ version-check.sh     # 校验四处版本标记与 CHANGELOG 是否对齐
 ```
 
 ## 快速开始
@@ -130,6 +136,13 @@ bash tests/run.sh
 
 6 个场景覆盖同步判定的边界：手机首登、手机乱点、久放、旧设备升级、已同步改动、无改动。
 测试用 `vm` 沙箱直接加载**真实前端脚本**，只 mock `fetch` 与 `localStorage`。
+
+```bash
+bash tests/version-check.sh
+```
+
+校验 `v.json` / 页脚 / `sw.js?v=N` / `CACHE` 四处版本标记与 CHANGELOG 一致。
+漏改任何一处，用户就会停在旧版本而你以为已发布 —— 这个脚本让它在发布前就报错。
 
 ## 已知限制
 
