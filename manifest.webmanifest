@@ -1,0 +1,16 @@
+{
+  "name": "今天赚了吗",
+  "short_name": "今天赚了吗",
+  "description": "打工人薪资计算器：每秒都在涨的那种。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF4D9",
+  "theme_color": "#FFF4D9",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

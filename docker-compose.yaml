@@ -1,0 +1,29 @@
+services:
+  zhuanlema-web:
+    image: docker.1ms.run/library/caddy:alpine
+    container_name: zhuanlema-web
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    volumes:
+      - ./html:/usr/share/caddy:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - zhuanlema-push
+
+  zhuanlema-push:
+    image: docker.1ms.run/library/python:3.12-alpine
+    container_name: zhuanlema-push
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      - PORT=8000
+      - DATA_FILE=/data/subs.json
+      - ICS_DIR=/data/ics
+      - VAPID_SUBJECT=${VAPID_SUBJECT}
+      - VAPID_PUBLIC=${VAPID_PUBLIC}
+      - VAPID_PRIVATE_RAW=${VAPID_PRIVATE_RAW}
+    command: sh -c "pip install --no-cache-dir -q pywebpush && exec python /app/server.py"
+    volumes:
+      - ./push/server.py:/app/server.py:ro
+      - ./pushdata:/data

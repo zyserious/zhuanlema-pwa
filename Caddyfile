@@ -1,0 +1,19 @@
+:80 {
+	root * /usr/share/caddy
+	encode gzip
+
+	# 提醒推送服务（订阅、定时推送、日历下发）
+	handle /api/* {
+		reverse_proxy zhuanlema-push:8000
+	}
+
+	# 页面与 SW 必须每次回源校验，避免手机端长期停留在旧版本
+	@nocache path / /index.html /sw.js /manifest.webmanifest
+	header @nocache Cache-Control "no-cache, must-revalidate"
+
+	# 图标等静态资源内容不变，可长期缓存
+	@static path /icons/*
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	file_server
+}

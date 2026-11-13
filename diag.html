@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>同步诊断 · 今天赚了吗</title>
+<style>
+  :root{--ink:#1b1b1f;--mute:#77777f;--line:#e6e6ea;--bg:#f7f7f9;--ok:#15803d;--bad:#b91c1c}
+  *{box-sizing:border-box}
+  body{margin:0;padding:18px 16px 60px;font:15px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",system-ui,sans-serif;
+       background:var(--bg);color:var(--ink)}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--mute);font-size:13px;margin:0 0 16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin:0 0 12px;
+        box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--mute);font-weight:600;letter-spacing:.02em}
+  .row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+  .row:last-child{border-bottom:0}
+  .row b{font-weight:600;font-variant-numeric:tabular-nums}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;color:var(--mute)}
+  button{width:100%;padding:13px;border-radius:12px;border:0;font-size:15px;font-weight:600;margin-top:10px;
+         background:var(--ink);color:#fff;font-family:inherit}
+  button.plain{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  button:disabled{opacity:.5}
+  .hint{font-size:12.5px;color:var(--mute);margin:8px 0 0}
+  pre{background:#0f1115;color:#d7dbe0;padding:12px;border-radius:10px;font-size:11.5px;overflow:auto;margin:10px 0 0}
+</style>
+</head>
+<body>
+<h1>同步诊断</h1>
+<p class="sub">只看不改。用来确认手机上到底是哪份数据在跟云端打架。</p>
+
+<div class="card">
+  <h2>这台设备</h2>
+  <div id="env"></div>
+</div>
+
+<div class="card">
+  <h2>本机存储</h2>
+  <div id="local"></div>
+</div>
+
+<div class="card">
+  <h2>云端</h2>
+  <div id="cloud"></div>
+</div>
+
+<div class="card">
+  <h2>操作</h2>
+  <button id="fix">清掉本机旧数据，改以云端为准</button>
+  <p class="hint">只会删除这台设备里缓存的数据（设置 + 业务数据 + 同步锚点），账号登录状态保留。云端数据不动。</p>
+  <button class="plain" id="sw">强制更新到最新版本</button>
+  <button class="plain" id="report">上报诊断</button>
+  <pre id="out" style="display:none"></pre>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const row = (k, v, cls) => `<div class="row"><span>${k}</span><b class="${cls || ''}">${v}</b></div>`;
+const get = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const raw = k => localStorage.getItem(k);
+
+const d = get('data') || {};
+const s = get('settings') || {};
+const anchor = get('syncAnchor');
+const auth = get('auth') || {};
+const score = (x) => {
+  const k = o => Object.keys(o || {}).length;
+  return k(x.shifts) * 3 + k((x.ot || {}).log) * 2 + (x.fish || []).length * 2 +
+         (x.wishes || []).length * 3 + (x.deposits || []).length * 2 +
+         (x.wall || []).length + k(x.rich) * 2;
+};
+const ls = {
+  build: '?', ua: navigator.userAgent, sw: 'none', anchor: anchor, lastEdit: raw('lastEdit'),
+  score: score(d), hasShifts: Object.keys(d.shifts || {}).length,
+  fish: (d.fish || []).length, ot: Object.keys((d.ot || {}).log || {}).length,
+  wishes: (d.wishes || []).length, settingsKeys: Object.keys(s).length
+};
+
+/* 环境 */
+$('env').innerHTML =
+  row('打开地址', '<span class="mono">' + location.pathname + location.search + '</span>') +
+  row('页面版本', '<span id="build">读取中…</span>') +
+  row('已加入主屏', (navigator.standalone || matchMedia('(display-mode: standalone)').matches) ? '是' : '否') +
+  row('Service Worker', '<span id="swv">检查中…</span>');
+
+/* 本机 */
+$('local').innerHTML =
+  row('登录账号', auth.user ? auth.user : '<span class="bad">未登录</span>') +
+  row('同步锚点', anchor ? (anchor.user + ' @ ' + (anchor.saved || '空')) : '<span class="bad">无（新设备）</span>') +
+  row('最后修改时间', ls.lastEdit ? new Date(+ls.lastEdit).toLocaleString('zh-CN') : '—') +
+  row('数据丰富度', score(d) + (score(d) === 0 ? '（空数据）' : ''), score(d) === 0 ? 'bad' : 'ok') +
+  row('排班天数', Object.keys(d.shifts || {}).length) +
+  row('摸鱼记录', (d.fish || []).length + ' 条') +
+  row('加班记录', Object.keys((d.ot || {}).log || {}).length + ' 天') +
+  row('设置项', Object.keys(s).length + ' 项');
+
+/* 云端 */
+fetch('./api/data', {headers: auth.token ? {'Authorization': 'Bearer ' + auth.token} : {}})
+  .then(r => r.json())
+  .then(r => {
+    if(!r.ok){
+      $('cloud').innerHTML = row('状态', r.error === 'unauthorized' ? '<span class="bad">登录已失效</span>' : '<span class="bad">' + (r.error || '读取失败') + '</span>');
+      return;
+    }
+    const c = (r.data && r.data.data) || {};
+    const cloudScore = score(c);
+    const diff = cloudScore - score(d);
+    $('cloud').innerHTML =
+      row('云端保存时间', r.saved || '—') +
+      row('数据丰富度', cloudScore, cloudScore > 0 ? 'ok' : 'bad') +
+      row('排班天数', Object.keys(c.shifts || {}).length) +
+      row('摸鱼记录', (c.fish || []).length + ' 条') +
+      row('加班记录', Object.keys((c.ot || {}).log || {}).length + ' 天') +
+      row('对比结果', diff > 0 ? '<span class="bad">云端比本机多 ' + diff + ' 分</span>'
+                 : diff < 0 ? '本机比云端多' : '两边一致');
+  })
+  .catch(e => { $('cloud').innerHTML = row('状态', '<span class="bad">连不上服务器</span>'); });
+
+/* 版本 / SW */
+fetch('./v.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.json()).then(j => {
+  $('build').textContent = 'v' + j.build;
+  ls.build = j.build;
+}).catch(() => { $('build').textContent = '读不到'; });
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(rs => {
+    const urls = rs.map(r => (r.active && r.active.scriptURL) || 'inactive');
+    ls.sw = urls.join(',') || 'none';
+    $('swv').textContent = urls.length ? urls.map(u => u.split('/').pop()).join(', ') : '未注册';
+  });
+}else{
+  $('swv').textContent = '不支持';
+}
+
+/* 操作 */
+$('fix').onclick = () => {
+  if(!confirm('清掉本机缓存的数据，改为从云端重新拉取？')) return;
+  ['settings', 'data', 'lastEdit', 'syncAnchor', 'onboarded', 'backup_v3'].forEach(k => localStorage.removeItem(k));
+  caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).then(() => {
+    navigator.serviceWorker && navigator.serviceWorker.getRegistrations()
+      .then(rs => Promise.all(rs.map(r => r.unregister()))).catch(() => {});
+    location.replace('/?v=' + Date.now());
+  });
+};
+$('sw').onclick = async () => {
+  if('serviceWorker' in navigator){
+    const rs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(rs.map(r => r.update().catch(() => {})));
+    await Promise.all((await caches.keys()).map(k => caches.delete(k)));
+  }
+  location.replace('/?v=' + Date.now());
+};
+$('report').onclick = () => {
+  const body = Object.assign({}, ls, {report: true});
+  fetch('./api/diag', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+    .then(r => r.json()).then(r => {
+      $('out').style.display = 'block';
+      $('out').textContent = '已上报\n' + JSON.stringify(body, null, 2);
+    }).catch(e => { $('out').style.display = 'block'; $('out').textContent = '上报失败: ' + e; });
+};
+</script>
+</body>
+</html>
