@@ -722,7 +722,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn ghost" id="clearWishes">清空愿望和存钱罐</button>
     <button class="btn ghost" id="resetSettings">恢复默认设置</button>
   </div>
-  <p class="foot">今天赚了吗 · v2.5 时段鼓励语 · 2026-11-13</p>
+  <p class="foot">今天赚了吗 · v2.6 小窗也陪着 · 2026-11-13</p>
 </section>
 </main>
 
@@ -1027,14 +1027,21 @@ function giftScene(now){
   if(sh === 'n') return sec < NIGHT_PEAK ? 'night1' : 'night2';
   return 'day';
 }
-let giftState = { cheer: '', word: '', warm: false };
-function renderGift(now){
+/* 主页面和桌面小窗共用同一套取词逻辑，避免两处文案漂移 */
+function giftPicks(now){
   const key = giftScene(now);
   const sc = GIFT.scenes[key] || GIFT.scenes.day;
   const mins = Math.floor(secOfDay(now) / 60);
-  const cheer = sc.cheer[Math.floor(mins / 15) % sc.cheer.length];   // 每 15 分钟换一句
-  const word  = sc.word[Math.floor(mins / 25) % sc.word.length];     // 每 25 分钟换一段
-  const warm  = key === 'night2';                                     // 售后高峰用暖色，看着更像有人陪着
+  return {
+    key,
+    cheer: sc.cheer[Math.floor(mins / 15) % sc.cheer.length],   // 每 15 分钟换一句
+    word:  sc.word[Math.floor(mins / 25) % sc.word.length],     // 每 25 分钟换一段
+    warm:  key === 'night2'                                     // 售后高峰用暖色，看着更像有人陪着
+  };
+}
+let giftState = { cheer: '', word: '', warm: false };
+function renderGift(now){
+  const { cheer, word, warm } = giftPicks(now);
   if(cheer !== giftState.cheer){
     giftState.cheer = cheer;
     const el = $('cdCheer');
@@ -2667,32 +2674,44 @@ async function openPip(){
   if(!pipSupported()) return toast('这个浏览器不支持桌面小窗，Chrome / Edge 116 以上才有');
   if(pipWin && !pipWin.closed){ pipWin.focus(); return; }
   try{
-    pipWin = await documentPictureInPicture.requestWindow({width: 300, height: 186});
+    pipWin = await documentPictureInPicture.requestWindow({width: 300, height: 262});
   }catch(e){ return toast('小窗没打开，再点一次试试'); }
   const doc = pipWin.document;
   doc.body.innerHTML = `
     <style>
       *{box-sizing:border-box;margin:0}
       body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#FFF4D9;color:#1F1A13;
-        display:flex;flex-direction:column;justify-content:space-between;height:100vh;padding:12px 14px;overflow:hidden}
+        display:flex;flex-direction:column;gap:6px;height:100vh;padding:11px 13px;overflow:hidden}
       .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
       .chip{font-size:12px;font-weight:900;background:#FFFDF7;border:2px solid #1F1A13;border-radius:9px;padding:2px 7px;white-space:nowrap}
       .shift{font-size:12px;font-weight:800;color:#7A6F5F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .amt{font-size:34px;font-weight:900;letter-spacing:-1px;margin:4px 0 0;font-variant-numeric:tabular-nums}
-      .sub{font-size:13px;font-weight:800;color:#7A6F5F;margin-top:2px}
-      .track{height:9px;border-radius:9px;background:#F3E6C6;border:2px solid #1F1A13;overflow:hidden;margin-top:8px}
+      .amt{font-size:32px;font-weight:900;letter-spacing:-1px;margin:2px 0 0;font-variant-numeric:tabular-nums}
+      .sub{font-size:13px;font-weight:800;color:#7A6F5F;margin-top:1px}
+      .track{height:9px;border-radius:9px;background:#F3E6C6;border:2px solid #1F1A13;overflow:hidden;margin-top:7px}
       .track i{display:block;height:100%;width:0;background:#FF5A36;transition:width .3s linear}
+      .gift{margin-top:auto;flex-shrink:0;padding-top:7px;border-top:2px dashed rgba(31,26,19,.16);display:flex;flex-direction:column;gap:3px}
+      .cheer{font-size:12.5px;font-weight:900;line-height:1.3}
+      .cheer.warm{color:#D93A16}
+      .word{font-size:11.5px;font-weight:700;color:#7A6F5F;line-height:1.4;display:-webkit-box;
+        -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .sign{font-size:10.5px;font-weight:800;color:#B07A6A;text-align:right}
     </style>
     <div class="top"><span class="chip" id="pChip">—</span><span class="shift" id="pShift"></span></div>
-    <div>
-      <div class="amt" id="pAmt">¥0.00</div>
-      <div class="sub" id="pSub"></div>
-      <div class="track"><i id="pBar"></i></div>
+    <div class="amt" id="pAmt">¥0.00</div>
+    <div class="sub" id="pSub"></div>
+    <div class="track"><i id="pBar"></i></div>
+    <div class="gift">
+      <div class="cheer" id="pCheer"></div>
+      <div class="word" id="pWord"></div>
+      <div class="sign" id="pSign"></div>
     </div>`;
   const els = {
     chip: doc.getElementById('pChip'), shift: doc.getElementById('pShift'),
-    amt: doc.getElementById('pAmt'), sub: doc.getElementById('pSub'), bar: doc.getElementById('pBar')
+    amt: doc.getElementById('pAmt'), sub: doc.getElementById('pSub'), bar: doc.getElementById('pBar'),
+    cheer: doc.getElementById('pCheer'), word: doc.getElementById('pWord'), sign: doc.getElementById('pSign')
   };
+  els.sign.textContent = '——' + GIFT.from;
+  let lastCheer = '', lastWord = '', lastWarm = null;
   const upd = () => {
     if(!pipWin || pipWin.closed) return;
     const now = new Date(), st = status(now), sh = shiftOf(now), w = windowOf(now), sec = secOfDay(now);
@@ -2710,6 +2729,11 @@ async function openPip(){
     els.sub.textContent = sub;
     const pct = w ? Math.min(100, Math.max(0, (sec - w[0]) / (w[1] - w[0]) * 100)) : 100;
     els.bar.style.width = pct.toFixed(1) + '%';
+    // 鼓励语：和主页面同一套取词（每 15 / 25 分钟换），只有变化时才写，避免闪烁
+    const g = giftPicks(now);
+    if(g.cheer !== lastCheer){ lastCheer = g.cheer; els.cheer.textContent = g.cheer; }
+    if(g.word !== lastWord){ lastWord = g.word; els.word.textContent = g.word; }
+    if(g.warm !== lastWarm){ lastWarm = g.warm; els.cheer.classList.toggle('warm', g.warm); }
   };
   upd();
   clearInterval(pipTimer);
@@ -2734,7 +2758,7 @@ $('pipBtn').onclick = openPip;
       reloading = true;
       location.reload();
     });
-    const check = () => navigator.serviceWorker.register('sw.js?v=9', { updateViaCache: 'none' })
+    const check = () => navigator.serviceWorker.register('sw.js?v=10', { updateViaCache: 'none' })
       .then(reg => reg.update().catch(() => {}))
       .catch(() => {});
     check();

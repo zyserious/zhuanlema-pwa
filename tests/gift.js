@@ -51,6 +51,18 @@ const sign = vm.runInContext(`'——' + GIFT.from`, ctx);
 if (!/^——\S+$/.test(sign)) { fail++; console.log(`FAIL  落款格式不对: ${sign}`); }
 else console.log(`PASS  落款格式 ${sign}`);
 
+// 共用取词：桌面小窗读的是 giftPicks，必须与主页面 renderGift 写进 DOM 的内容一致
+const pair = JSON.parse(vm.runInContext(`(() => {
+  const n = new Date('2026-11-14T21:00:00');
+  const g = giftPicks(n);
+  renderGift(n);
+  return JSON.stringify({ cheer: g.cheer, word: g.word, warm: g.warm,
+                          domCheer: $('cdCheer').textContent, domWord: $('giftLine').textContent });
+})()`, ctx));
+const same = pair.cheer === pair.domCheer && pair.word === pair.domWord;
+if (!same) fail++;
+console.log(`${same ? 'PASS' : 'FAIL'}  giftPicks 与页面渲染一致（小窗用同一套词）`);
+
 // 渲染检查：真的写进了 DOM
 const rendered = vm.runInContext(`(() => {
   const n = new Date('2026-11-14T21:00:00');
