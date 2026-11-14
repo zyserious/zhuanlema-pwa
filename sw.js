@@ -3,8 +3,8 @@
    - 页面导航（HTML）走「网络优先」，保证每次打开都是最新版；断网时回退缓存
    - 静态资源（图标、manifest）走「缓存优先 + 后台更新」
    - 每次发布改 CACHE 版本号，activate 时清掉旧缓存 */
-const CACHE = 'zhuanlema-v9';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon.svg'];
+const CACHE = 'zhuanlema-v10';
+const ASSETS = ['./', './index.html', './today.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon.svg'];
 
 self.addEventListener('install', e => {
   e.waitUntil(

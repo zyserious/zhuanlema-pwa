@@ -12,6 +12,8 @@ if command -v python >/dev/null 2>&1; then
   python test_today_golden.py
   python test_ics_titles.py > /dev/null
   echo "PASS  日历状态矩阵（上班前倒计时 / 上班中金额 / 休息日静默）"
+  python test_push_schedule.py > /dev/null
+  echo "PASS  推送时段矩阵（30/10 分钟两档 + 跨午夜收工 + 未排班静默）"
 else
   echo "  skip python 用例（没装 python）"
 fi

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>今天赚了吗</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="今天赚了吗">
+<meta name="theme-color" content="#FFF9EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14110C" media="(prefers-color-scheme: dark)">
+<style>
+:root{
+  --bg:#FFF9EC; --fg:#1A1712; --mute:#8B8175; --line:#E9DFC8;
+  --accent:#C2410C; --accent-soft:#F5C4B3; --card:#FFFFFF;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#14110C; --fg:#F5EFE1; --mute:#8B8478; --line:#2A251C;
+         --accent:#F0997B; --accent-soft:#4A2A1D; --card:#1C1813; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum";
+  display:flex;flex-direction:column;
+  height:100dvh;
+  padding:calc(env(safe-area-inset-top) + 14px) 20px calc(env(safe-area-inset-bottom) + 14px);
+  overflow:hidden;
+  transition:background .3s ease,color .3s ease;
+}
+header{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mute);min-height:20px}
+header .tag{display:flex;align-items:center;gap:6px;font-weight:500;color:var(--fg)}
+header .dot{width:7px;height:7px;border-radius:50%;background:var(--mute);opacity:.35}
+header .dot.live{background:#22C55E;opacity:1;animation:beat 2s ease-in-out infinite}
+@keyframes beat{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){header .dot.live{animation:none}}
+
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;min-height:0}
+
+.ring{position:relative;width:min(76vw,300px);aspect-ratio:1;flex:none}
+.ring svg{width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.ring .track{fill:none;stroke:var(--line);stroke-width:9}
+.ring .bar{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;
+  stroke-dasharray:527.79;stroke-dashoffset:527.79;transition:stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)}
+.ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.ring .cur{font-size:15px;color:var(--mute);font-weight:500;letter-spacing:.5px}
+.ring .amt{font-size:clamp(34px,11.5vw,46px);font-weight:500;letter-spacing:-1px;line-height:1.05}
+.ring .unit{font-size:13px;color:var(--mute);margin-top:2px}
+
+.headline{text-align:center}
+.headline .big{font-size:clamp(26px,8vw,34px);font-weight:500;letter-spacing:-.5px;line-height:1.15}
+.headline .sub{font-size:13px;color:var(--mute);margin-top:6px;line-height:1.4}
+
+.track-line{width:min(76vw,300px);height:4px;border-radius:2px;background:var(--line);overflow:hidden;flex:none}
+.track-line i{display:block;height:100%;width:0;background:var(--accent);border-radius:2px;transition:width .6s cubic-bezier(.22,1,.36,1)}
+
+footer{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mute);gap:12px}
+footer a{color:var(--fg);text-decoration:none;border-bottom:1px solid var(--line);padding-bottom:1px;font-weight:500}
+footer .hint{font-size:12px;color:var(--mute)}
+
+#gate{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center;z-index:9}
+#gate.hide{display:none}
+#gate h1{font-size:19px;font-weight:500;margin:0}
+#gate p{font-size:13px;color:var(--mute);margin:0;line-height:1.6;max-width:280px}
+#gate a{display:inline-block;margin-top:4px;padding:11px 22px;border-radius:99px;
+  background:var(--fg);color:var(--bg);text-decoration:none;font-size:14px;font-weight:500}
+
+.off-mark{font-size:15px;color:var(--mute);letter-spacing:2px}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+</style>
+</head>
+<body>
+<header>
+  <span class="tag"><i class="dot" id="dot"></i><span id="shiftTag">—</span></span>
+  <span id="clock">--:--</span>
+</header>
+
+<main>
+  <div class="ring">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="track" cx="100" cy="100" r="84"></circle>
+      <circle class="bar" id="bar" cx="100" cy="100" r="84"></circle>
+    </svg>
+    <div class="mid">
+      <span class="cur" id="cur">¥</span>
+      <span class="amt" id="amt">0.00</span>
+      <span class="unit" id="unit"></span>
+    </div>
+  </div>
+
+  <div class="headline">
+    <div class="big" id="big">读取中</div>
+    <div class="sub" id="sub"></div>
+  </div>
+
+  <div class="track-line"><i id="fill"></i></div>
+</main>
+
+<footer>
+  <span class="hint" id="foot">—</span>
+  <a href="./">完整版</a>
+</footer>
+
+<div id="gate" class="hide">
+  <h1 id="gateTitle">还没有登录</h1>
+  <p id="gateText">这个页面读的是你账号里的班次和工资。先回完整版登录一次，之后从桌面图标打开就能直接看。</p>
+  <a href="./" id="gateBtn">去登录</a>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var CACHE_KEY = 'todayCache';
+  var API = './api/today';
+  var REFRESH_MS = 60000;
+
+  var el = {
+    tag: document.getElementById('shiftTag'),
+    dot: document.getElementById('dot'),
+    clock: document.getElementById('clock'),
+    bar: document.getElementById('bar'),
+    amt: document.getElementById('amt'),
+    cur: document.getElementById('cur'),
+    unit: document.getElementById('unit'),
+    big: document.getElementById('big'),
+    sub: document.getElementById('sub'),
+    fill: document.getElementById('fill'),
+    foot: document.getElementById('foot'),
+    gate: document.getElementById('gate'),
+    gateTitle: document.getElementById('gateTitle'),
+    gateText: document.getElementById('gateText'),
+    gateBtn: document.getElementById('gateBtn')
+  };
+
+  var CIRC = 2 * Math.PI * 84;
+  var state = null;        // 最近一次服务端返回
+  var stamp = 0;           // 拿到数据时的本地时刻
+  var offline = false;
+  var refreshTimer = null;
+  var clockTimer = null;
+
+  function authToken(){
+    try{
+      var a = JSON.parse(localStorage.getItem('auth') || '{}');
+      return (a && a.token) || '';
+    }catch(e){ return ''; }
+  }
+
+  function money(v){
+    v = Math.max(0, Number(v) || 0);
+    return v.toFixed(2);
+  }
+
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+
+  function hms(sec){
+    sec = Math.max(0, Math.floor(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h ? h + ':' + pad(m) + ':' + pad(s) : m + ':' + pad(s);
+  }
+
+  function hmsText(sec){
+    sec = Math.max(0, Math.floor(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+    if(h) return h + ' 小时 ' + m + ' 分';
+    if(m) return m + ' 分钟';
+    return '不到 1 分钟';
+  }
+
+  function clockText(d){
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function setRing(p, animate){
+    p = Math.max(0, Math.min(1, p || 0));
+    if(!animate) el.bar.style.transition = 'none';
+    el.bar.style.strokeDashoffset = String(CIRC * (1 - p));
+    el.fill.style.width = (p * 100).toFixed(1) + '%';
+    if(!animate){ void el.bar.getBoundingClientRect(); el.bar.style.transition = ''; }
+  }
+
+  function setBadge(p){
+    if(!('setAppBadge' in navigator)) return;
+    try{
+      if(p && p.status === 'working'){
+        var mins = Math.max(1, Math.ceil(Math.max(0, p.remainSec) / 60));
+        navigator.setAppBadge(mins);
+      }else{
+        navigator.clearAppBadge();
+      }
+    }catch(e){}
+  }
+
+  function render(){
+    if(!state) return;
+    var p = state;
+    var elapse = stamp ? Math.max(0, (Date.now() - stamp) / 1000) : 0;
+    var perSec = Number(p.perSec) || 0;
+
+    el.tag.textContent = p.shiftEmoji + ' ' + p.shiftName +
+      (p.window ? '  ' + seg(p.window[0]) + '–' + seg(p.window[1] % 86400 || 86400, true) : '');
+
+    var isLive = p.status === 'working';
+    el.dot.className = 'dot' + (isLive ? ' live' : '');
+
+    if(p.status === 'working'){
+      var earned = Math.min(Number(p.dayTotal) || 0, (Number(p.earned) || 0) + perSec * elapse);
+      var remain = Math.max(0, (Number(p.remainSec) || 0) - elapse);
+      var prog = p.progress || 0;
+      var paid = Math.min(1, prog + (p.fullSec ? (elapse / p.fullSec) : 0));
+      setRing(paid, true);
+      el.amt.textContent = money(earned);
+      el.cur.style.visibility = 'visible';
+      el.unit.textContent = '';
+      el.big.textContent = '还剩 ' + hms(remain);
+      el.sub.textContent = '今天目标 ' + money(p.dayTotal) + ' · 进度 ' + Math.round(paid * 100) + '%';
+      el.foot.textContent = '已上 ' + hmsText((Number(p.paidSec) || 0) + elapse);
+      if(remain <= 0) scheduleRefresh(3000);
+      return;
+    }
+
+    if(p.status === 'before'){
+      var until = Math.max(0, (Number(p.untilStartSec) || 0) - elapse);
+      setRing(0, true);
+      el.cur.style.visibility = 'hidden';
+      el.amt.textContent = hms(until);
+      el.unit.textContent = '距开工';
+      var soon = until <= 1800;
+      el.big.textContent = soon ? '快上班了' : (p.window ? seg(p.window[0]) + ' 开工' : '等着开工');
+      el.sub.textContent = soon
+        ? '还有 ' + hmsText(until) + ' · 今天目标 ' + money(p.dayTotal)
+        : '今天目标 ' + money(p.dayTotal);
+      el.foot.textContent = '今天预计 ¥' + money(p.dayTotal);
+      return;
+    }
+
+    if(p.status === 'done'){
+      setRing(1, true);
+      el.cur.style.visibility = 'visible';
+      el.amt.textContent = money(p.dayTotal);
+      el.unit.textContent = '今天赚完了';
+      el.big.textContent = '收工';
+      el.sub.textContent = '今天赚了 ' + money(p.dayTotal) + ' · 明天见';
+      el.foot.textContent = p.windowText || '已完成';
+      return;
+    }
+
+    // off：休息日 / 未排班
+    setRing(0, true);
+    el.cur.style.visibility = 'hidden';
+    el.amt.textContent = '休息';
+    el.unit.textContent = '';
+    el.big.textContent = '今天不用上班';
+    el.sub.textContent = '好好歇着，明天再说';
+    el.foot.textContent = '—';
+  }
+
+  function seg(sec, isEnd){
+    sec = Math.floor(sec);
+    if(isEnd && sec >= 86400) return '24:00';
+    var h = Math.floor(sec / 3600) % 24, m = Math.floor((sec % 3600) / 60);
+    return pad(h) + ':' + pad(m);
+  }
+
+  function scheduleRefresh(ms){
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(load, ms || REFRESH_MS);
+  }
+
+  function paintOfflineNote(){
+    if(!offline) return;
+    el.foot.textContent = '离线 · 上次 ' + (state && state.now ? state.now.slice(11, 16) : '—');
+  }
+
+  function showGate(title, text, btn){
+    el.gateTitle.textContent = title;
+    el.gateText.textContent = text;
+    el.gateBtn.textContent = btn || '去登录';
+    el.gate.classList.remove('hide');
+  }
+
+  function load(){
+    var tk = authToken();
+    if(!tk){
+      showGate('还没有登录',
+        '这个页面读的是你账号里的班次和工资。先回完整版登录一次，之后从桌面图标打开就能直接看。',
+        '去登录');
+      return;
+    }
+    fetch(API, { headers: { 'Authorization': 'Bearer ' + tk }, cache: 'no-store' })
+      .then(function(r){
+        if(r.status === 401) throw new Error('401');
+        return r.json();
+      })
+      .then(function(d){
+        if(!d || d.ok === false) throw new Error(d && d.error || 'bad');
+        state = d;
+        stamp = Date.now();
+        offline = false;
+        el.gate.classList.add('hide');
+        try{ localStorage.setItem(CACHE_KEY, JSON.stringify(d)); }catch(e){}
+        render();
+        setBadge(d);
+        scheduleRefresh(REFRESH_MS);
+      })
+      .catch(function(e){
+        var cached = null;
+        try{ cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); }catch(err){}
+        if(e && e.message === '401'){
+          state = null;
+          showGate('登录过期了', '回完整版重新登录一次，回来就正常了。', '重新登录');
+          return;
+        }
+        if(cached){
+          state = cached;
+          stamp = 0;
+          offline = true;
+          el.gate.classList.add('hide');
+          render();
+          paintOfflineNote();
+          scheduleRefresh(30000);
+          return;
+        }
+        el.amt.textContent = '—';
+        el.big.textContent = '连不上';
+        el.sub.textContent = '检查一下网络，稍后自动重试';
+        scheduleRefresh(15000);
+      });
+  }
+
+  clockTimer = setInterval(function(){
+    el.clock.textContent = clockText(new Date());
+  }, 1000);
+  el.clock.textContent = clockText(new Date());
+
+  setInterval(function(){
+    if(state && !offline) render();
+    if(state && state.status === 'working' && !offline) setBadge(state);
+  }, 1000);
+
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){
+      stamp = stamp || Date.now();
+      load();
+    }
+  });
+
+  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    navigator.serviceWorker.register('sw.js?v=12', { updateViaCache: 'none' }).catch(function(){});
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

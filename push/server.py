@@ -562,6 +562,13 @@ def build_ics(st, dd, now=None, days=None):
     return '\r\n'.join(out) + '\r\n'
 
 
+def _daily_pay(st):
+    try:
+        return (float(st.get('salary') or 0) or 10000.0) / (float(st.get('payDays') or 0) or 21.75)
+    except Exception:
+        return 10000.0 / 21.75
+
+
 def due_messages(sub, now):
     """返回 [(dedupe_key, title, body, tag)]"""
     st = sub.get('settings') or {}
@@ -583,18 +590,45 @@ def due_messages(sub, now):
                             '上班时间 %s，记得定好闹钟。' % window_text(sh, st),
                             'eve-' + tmr_k))
 
-    # 2) 上班前 N 分钟
+    # 2) 上班前 N 分钟（用户设的 remindMin，默认 30）
     pre = int(st.get('remindMin', 30) or 30)
     sh = shifts.get(today_k)
     if sh and sh != 'x':
         start = hm_to_sec(st.get('nightStart') if sh == 'n' else st.get('start'), '08:00')
+        end = _end_sec(st.get('nightEnd') if sh == 'n' else st.get('end'), '16:00')
         sec_now = now.hour * 3600 + now.minute * 60 + now.second
         delta_min = (start - sec_now) / 60.0
+
         if 0 <= delta_min <= pre and delta_min > pre - 1.2:
-            key = 'pre:' + today_k + ':' + sh
-            out.append((key, '%s %d 分钟后上班' % (SHIFT_NAME[sh], max(1, int(round(delta_min)))),
+            out.append(('pre:' + today_k + ':' + sh,
+                        '%s %d 分钟后上班' % (SHIFT_NAME[sh], max(1, int(round(delta_min)))),
                         '上班时间 %s，该出门啦 🚀' % window_text(sh, st),
                         'pre-' + today_k))
+
+        # 3) 开工前 10 分钟固定再催一次
+        if 0 <= delta_min <= 10 and delta_min > 8.8:
+            out.append(('pre10:' + today_k + ':' + sh,
+                        '还有 10 分钟上班',
+                        '上班时间 %s，收拾一下准备开工 🔔' % window_text(sh, st),
+                        'pre10-' + today_k))
+
+        # 4) 收工：下班那一刻推当日总结（不跨午夜的班次当天检测）
+        if end < 86400:
+            over_min = (sec_now - end) / 60.0
+            if 0 <= over_min <= 0.7:
+                out.append(('done:' + today_k + ':' + sh, '收工 🎉',
+                            '今天赚了 %s，辛苦啦，回见' % _yuan(_daily_pay(st)),
+                            'done-' + today_k))
+
+    # 5) 跨午夜夜班（如 16:00-00:00）的收工发生在次日凌晨：不管今天排没排班，都查昨天
+    yk = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+    yend = _end_sec(st.get('nightEnd'), '00:00')
+    if shifts.get(yk) == 'n' and yend >= 86400:
+        over_min = (now.hour * 3600 + now.minute * 60 + now.second - (yend - 86400)) / 60.0
+        if 0 <= over_min <= 0.7:
+            out.append(('done:' + yk + ':n', '收工 🎉',
+                        '今天赚了 %s，辛苦啦，回见' % _yuan(_daily_pay(st)),
+                        'done-' + yk))
     return out
 
 

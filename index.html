@@ -680,6 +680,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn block primary" id="enablePush">开启手机提醒</button>
     <button class="btn ghost block" id="testPush" style="margin-top:8px">发一条测试提醒</button>
     <button class="btn block primary" id="subCal" style="margin-top:8px">订阅到 iPhone 锁屏（金额自动更新）</button>
+    <a class="btn ghost block" href="./today.html" style="margin-top:8px;text-align:center;text-decoration:none">打开今日打卡卡片（全屏大字版）</a>
     <p class="hint" id="calHint">订阅后：设置 → 日历 → 账户 → 抓取新数据 → 「每 15 分钟」，锁屏上加一个「日历」小组件。上班期间那行字就是实时的「已赚 ¥xx · 剩 x:xx」，开工前半小时会出现倒计时，休息日锁屏什么都不显示。</p>
     <button class="btn ghost block" id="icsBtn" style="margin-top:8px">导出 .ics 离线备份（不会自动更新）</button>
   </div>
@@ -724,7 +725,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn ghost" id="clearWishes">清空愿望和存钱罐</button>
     <button class="btn ghost" id="resetSettings">恢复默认设置</button>
   </div>
-  <p class="foot">今天赚了吗 · v2.7 锁屏也在赚 · 2026-11-14</p>
+  <p class="foot">今天赚了吗 · v2.8 一眼看到钱 · 2026-11-14</p>
 </section>
 </main>
 
@@ -2783,7 +2784,7 @@ $('pipBtn').onclick = openPip;
       reloading = true;
       location.reload();
     });
-    const check = () => navigator.serviceWorker.register('sw.js?v=11', { updateViaCache: 'none' })
+    const check = () => navigator.serviceWorker.register('sw.js?v=12', { updateViaCache: 'none' })
       .then(reg => reg.update().catch(() => {}))
       .catch(() => {});
     check();
