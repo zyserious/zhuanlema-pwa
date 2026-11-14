@@ -727,7 +727,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn ghost" id="clearWishes">清空愿望和存钱罐</button>
     <button class="btn ghost" id="resetSettings">恢复默认设置</button>
   </div>
-  <p class="foot">今天赚了吗 · v2.9 也让他看见 · 2026-11-14</p>
+  <p class="foot">今天赚了吗 · v2.10 敲两下背 · 2026-11-14</p>
 </section>
 </main>
 
@@ -2863,7 +2863,7 @@ $('pipBtn').onclick = openPip;
       reloading = true;
       location.reload();
     });
-    const check = () => navigator.serviceWorker.register('sw.js?v=13', { updateViaCache: 'none' })
+    const check = () => navigator.serviceWorker.register('sw.js?v=14', { updateViaCache: 'none' })
       .then(reg => reg.update().catch(() => {}))
       .catch(() => {});
     check();

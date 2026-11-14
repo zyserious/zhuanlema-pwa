@@ -534,6 +534,26 @@ def live_summary(p):
     return None
 
 
+def share_line(p):
+    """一行话：给 iOS 快捷指令、「显示结果」浮层、通知正文直接用。
+    四个状态都有话说（休息日是例外，也要一句），不返回 None，免得调用方判空。"""
+    st = p.get('status')
+    if st == 'working':
+        if float(p.get('earned') or 0) < 1:
+            return '开工啦 · 还剩 %s' % _left_text(p.get('remainSec'))
+        return '已赚 %s · 还剩 %s' % (_yuan(p.get('earned')), _left_text(p.get('remainSec')))
+    if st == 'before':
+        left = int(p.get('untilStartSec') or 0)
+        if 0 < left <= 3600:
+            return '还有 %s开工 · 今天目标 %s' % (_left_text(left), _yuan(p.get('dayTotal')))
+        w = p.get('window')
+        head = _hm(w[0]) if w else (p.get('windowText') or '').split('–')[0]
+        return '%s 开工 · 今天目标 %s' % (head, _yuan(p.get('dayTotal')))
+    if st == 'done':
+        return '今天赚了 %s · 收工' % _yuan(p.get('dayTotal'))
+    return '今天休息'
+
+
 def _vevent(uid, start, end, summary, desc, alarm_min=None, stamp=None):
     lines = ['BEGIN:VEVENT', 'UID:%s@zhuanlema' % uid,
              'DTSTAMP:' + _ics_dt(stamp or start),
@@ -769,6 +789,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({'ok': False, 'error': 'unauthorized'}, 401)
             blob = (acc['users'].get(user, {}) or {}).get('data') or {}
             p = today_payload(blob.get('settings') or {}, blob.get('data') or {})
+            p['lineText'] = share_line(p)   # 一行话：快捷指令 / 通知 / 分享卡片直接用
             if guest:
                 # 对方只该看到「今天赚了多少、还剩多久」。
                 # 月薪、计薪天数这些没必要给出去，前端也用不到（日薪 dayTotal 已够显示）。
@@ -786,7 +807,8 @@ class Handler(BaseHTTPRequestHandler):
             tok = ensure_share_token(user)
             host = (self.headers.get('Host') or 'xyt.zyserious.xyz').strip()
             return self._json({'ok': True, 'token': tok,
-                               'url': 'https://%s/today.html?t=%s' % (host, tok)})
+                               'url': 'https://%s/today.html?t=%s' % (host, tok),
+                               'api': 'https://%s/api/today?t=%s' % (host, tok)})
         if path in ('/api/cal-link', '/cal-link'):
             acc = load_accounts()
             user = check_token(acc, bearer(self))

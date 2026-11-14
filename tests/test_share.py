@@ -120,6 +120,24 @@ def main():
               '日薪算错: %r' % r.get('dayTotal'))
         for leak in ('settings', 'data', 'shifts', 'salary', 'salt', 'hash'):
             check(leak not in r, '只读响应泄露了字段: ' + leak)
+        check(r.get('lineText'), '响应缺 lineText（快捷指令要用的那一行）')
+
+        # 3b) 一行话：给 iOS 快捷指令「显示结果」用，四态都不能返空
+        lines = [
+            ({'status': 'working', 'earned': 169.67, 'remainSec': 3360},
+             '已赚 ¥169.67 · 还剩 56 分钟'),
+            ({'status': 'working', 'earned': 0.0, 'remainSec': 28320},
+             '开工啦 · 还剩 7:52'),
+            ({'status': 'before', 'untilStartSec': 1500, 'dayTotal': 192.31},
+             '还有 25 分钟开工 · 今天目标 ¥192.31'),
+            ({'status': 'before', 'untilStartSec': 7200, 'dayTotal': 192.31,
+              'window': [57600, 86400]}, '16:00 开工 · 今天目标 ¥192.31'),
+            ({'status': 'done', 'dayTotal': 192.31}, '今天赚了 ¥192.31 · 收工'),
+            ({'status': 'off'}, '今天休息'),
+        ]
+        for payload, want in lines:
+            got = server.share_line(payload)
+            check(got == want, '一行话不对: %r != %r' % (got, want))
 
         # 4) 不带 token 仍然 401
         st, r = get(base + '/api/today')
