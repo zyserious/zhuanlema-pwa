@@ -34,7 +34,7 @@ function seedOf({ anchor, lastEdit, data }) {
   const s = {
     settings: JSON.stringify({ salary: 10000, start: '08:00', end: '16:00', noLunch: true }),
     data: JSON.stringify(data), onboarded: 'true',
-    auth: JSON.stringify({ token: 'T', user: 'demo' })
+    auth: JSON.stringify({ token: 'T', user: 'xyt' })
   };
   if (lastEdit) s.lastEdit = String(lastEdit);
   if (anchor) s.syncAnchor = JSON.stringify(anchor);
@@ -47,7 +47,7 @@ async function run(name, seed, expect, prep) {
     const u = String(url), method = (opt && opt.method) || 'GET';
     calls.push({ u, method, body: opt && opt.body });
     if (u.includes('/data') && method === 'GET')
-      return Promise.resolve({ json: () => Promise.resolve({ ok:true, user:'demo', data:CLOUD, saved:CLOUD_SAVED }) });
+      return Promise.resolve({ json: () => Promise.resolve({ ok:true, user:'xyt', data:CLOUD, saved:CLOUD_SAVED }) });
     if (u.includes('/data') && method === 'POST')
       return Promise.resolve({ json: () => Promise.resolve({ ok:true, saved:'2026-11-13 20:00:00' }) });
     return Promise.resolve({ json: () => Promise.resolve({ ok:true }) });
@@ -71,14 +71,14 @@ async function run(name, seed, expect, prep) {
   all &= await run('B 手机端点过 1 天（比云端少）→ 仍拉云端',
       seedOf({lastEdit: T('19:59:30'), data:{...EMPTY, shifts:{'2026-11-13':'d'}}}), {way:'down'});
   all &= await run('C 手机端停留很久（无锚点）→ 不覆盖',
-      seedOf({anchor:{user:'demo', saved:''}, lastEdit: Date.now(), data: EMPTY}), {way:'down'});
+      seedOf({anchor:{user:'xyt', saved:''}, lastEdit: Date.now(), data: EMPTY}), {way:'down'});
   all &= await run('D 旧电脑升级：数据更丰富 + 更新 → 上传',
       seedOf({lastEdit: T('19:58:10'), data: RICH}), {way:'up', base: CLOUD_SAVED});
   all &= await run('E 已同步 + 本机又改过 → 上传（带 base）',
-      seedOf({anchor:{user:'demo', saved:CLOUD_SAVED}, lastEdit: T('19:59:00'), data: RICH}),
+      seedOf({anchor:{user:'xyt', saved:CLOUD_SAVED}, lastEdit: T('19:59:00'), data: RICH}),
       {way:'up', base: CLOUD_SAVED}, `markDirty(); store.set('lastEdit', ${T('19:59:00')});`);
   all &= await run('F 已同步且没改动 → 拉云端',
-      seedOf({anchor:{user:'demo', saved:CLOUD_SAVED}, lastEdit: T('19:50:00'), data: RICH}), {way:'down'});
+      seedOf({anchor:{user:'xyt', saved:CLOUD_SAVED}, lastEdit: T('19:50:00'), data: RICH}), {way:'down'});
   console.log(all ? '\n全部通过 ✓' : '\n有失败 ✗');
   process.exit(all ? 0 : 1);
 })();

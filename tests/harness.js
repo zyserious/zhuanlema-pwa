@@ -44,7 +44,7 @@ function boot(env, seed){
     navigator: { userAgent: env.ua || 'Mozilla/5.0 (iPhone) Safari', serviceWorker: null,
                  platform: env.platform || 'iPhone', maxTouchPoints: 5, standalone: false,
                  clipboard: {writeText: ()=>Promise.resolve()} },
-    location: {href: 'https://app.example.com/', search: '', origin: 'https://app.example.com', reload(){}},
+    location: {href: 'https://xyt.zyserious.xyz/', search: '', origin: 'https://xyt.zyserious.xyz', reload(){}},
     history: {replaceState(){}, pushState(){}},
     matchMedia: () => ({matches:false, addEventListener(){}, addListener(){}}),
     fetch: env.fetch, Date, Math, JSON, Object, Array, String, Number, Boolean, Promise, Error, isNaN, parseInt, parseFloat, encodeURIComponent, decodeURIComponent, Intl, URL, Blob: function(){}, File: function(){},

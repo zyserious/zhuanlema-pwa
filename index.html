@@ -679,7 +679,9 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <p class="hint" id="pushState">提示：还没开启</p>
     <button class="btn block primary" id="enablePush">开启手机提醒</button>
     <button class="btn ghost block" id="testPush" style="margin-top:8px">发一条测试提醒</button>
-    <button class="btn ghost block" id="icsBtn" style="margin-top:8px">导出到 iPhone 日历（只导已排班的日期）</button>
+    <button class="btn block primary" id="subCal" style="margin-top:8px">订阅到 iPhone 锁屏（金额自动更新）</button>
+    <p class="hint" id="calHint">订阅后：设置 → 日历 → 账户 → 抓取新数据 → 「每 15 分钟」，锁屏上加一个「日历」小组件。上班期间那行字就是实时的「已赚 ¥xx · 剩 x:xx」，开工前半小时会出现倒计时，休息日锁屏什么都不显示。</p>
+    <button class="btn ghost block" id="icsBtn" style="margin-top:8px">导出 .ics 离线备份（不会自动更新）</button>
   </div>
 
   <div class="card form">
@@ -722,7 +724,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn ghost" id="clearWishes">清空愿望和存钱罐</button>
     <button class="btn ghost" id="resetSettings">恢复默认设置</button>
   </div>
-  <p class="foot">今天赚了吗 · v2.6 小窗也陪着 · 2026-11-13</p>
+  <p class="foot">今天赚了吗 · v2.7 锁屏也在赚 · 2026-11-14</p>
 </section>
 </main>
 
@@ -742,8 +744,8 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
 <script>
 /* ---------- gift config（专属版，想改只动这里）---------- */
 const GIFT = {
-  to: 'demo',                   // ← 收礼人的昵称，改成你自己的
-  from: 'your-name',            // ← 落款（页面显示成 ——your-name）
+  to: 'demo',                 // ← 收礼人的昵称，改成你自己的
+  from: 'your-name',               // ← 落款（页面显示成 ——your-name）
   /* 文案按「现在处在什么时段」切换：
      · 白班（工作日白天）多是产品咨询，问得多但讲道理，节奏稳
      · 夜班和休息日多是售后，人多事杂，会遇到不讲理的，情绪最容易崩
@@ -2429,6 +2431,29 @@ function buildICS(days){
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');
 }
+/* 订阅版：交给 iOS 自己定时来拉，服务端每次现算，锁屏上就是实时金额 */
+$('subCal').onclick = async () => {
+  if(!AUTH.token) return toast('先登录一下再订阅');
+  const btn = $('subCal'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = '正在获取订阅链接…';
+  const done = () => { btn.disabled = false; btn.textContent = label; };
+  try{
+    const r = await fetch(PUSH_API + '/cal-link', {
+      headers: {'Authorization': 'Bearer ' + AUTH.token}
+    }).then(r => r.json());
+    if(!r.ok) throw new Error(r.error || '获取失败');
+    if(/iPad|iPhone|iPod/.test(navigator.userAgent)){
+      window.location.assign(r.webcal);        // 唤起系统「订阅日历」
+      toast('弹出日历后点右上角「订阅」');
+    }else{
+      prompt('复制这段链接，在日历里新建订阅（macOS：日历 → 文件 → 新建日历订阅）', r.url);
+    }
+    setTimeout(done, 1500);
+  }catch(e){
+    done();
+    toast('订阅失败：' + (e.message || e));
+  }
+};
 $('icsBtn').onclick = async () => {
   const n = scheduledCount(62);
   if(!n){
@@ -2758,7 +2783,7 @@ $('pipBtn').onclick = openPip;
       reloading = true;
       location.reload();
     });
-    const check = () => navigator.serviceWorker.register('sw.js?v=10', { updateViaCache: 'none' })
+    const check = () => navigator.serviceWorker.register('sw.js?v=11', { updateViaCache: 'none' })
       .then(reg => reg.update().catch(() => {}))
       .catch(() => {});
     check();
