@@ -38,6 +38,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: "NO"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
     dependencies:
       - target: ZhuanlemaWidget
         embed: true
@@ -63,6 +64,7 @@ targets:
         SKIP_INSTALL: "YES"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: "NO"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
 
 schemes:
   Zhuanlema:

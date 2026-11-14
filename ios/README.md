@@ -26,6 +26,15 @@
 
 ## 一次性准备（Mac 上）
 
+### 0. 把代码拿到 Mac 上
+
+```bash
+git clone https://github.com/zyserious/zhuanlema-pwa.git
+cd zhuanlema-pwa/ios
+```
+
+不想用 git 也行：在仓库页面点 `Code → Download ZIP`，解压后进 `ios/` 目录。
+
 ### 1. 装 Xcode
 
 App Store 搜 Xcode，装完打开一次，同意协议。约 10 GB，慢慢下。

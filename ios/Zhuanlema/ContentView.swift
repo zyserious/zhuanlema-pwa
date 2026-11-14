@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import Combine
 
 struct ContentView: View {
     private let bg = Color(red: 0.08, green: 0.07, blue: 0.05)
@@ -297,6 +299,8 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    ContentView()
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
 }
