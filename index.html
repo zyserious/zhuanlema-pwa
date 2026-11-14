@@ -683,6 +683,8 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <a class="btn ghost block" href="./today.html" style="margin-top:8px;text-align:center;text-decoration:none">打开今日打卡卡片（全屏大字版）</a>
     <p class="hint" id="calHint">订阅后：设置 → 日历 → 账户 → 抓取新数据 → 「每 15 分钟」，锁屏上加一个「日历」小组件。上班期间那行字就是实时的「已赚 ¥xx · 剩 x:xx」，开工前半小时会出现倒计时，休息日锁屏什么都不显示。</p>
     <button class="btn ghost block" id="icsBtn" style="margin-top:8px">导出 .ics 离线备份（不会自动更新）</button>
+    <button class="btn ghost block" id="shareBtn" style="margin-top:8px">发一个只读链接给别人（他点开就能看）</button>
+    <p class="hint" id="shareHint" style="display:none"></p>
   </div>
 
   <div class="card form">
@@ -725,7 +727,7 @@ body.friday .bar-fill{background:linear-gradient(90deg,#FF5A36,#FFC53D,#22B386,#
     <button class="btn ghost" id="clearWishes">清空愿望和存钱罐</button>
     <button class="btn ghost" id="resetSettings">恢复默认设置</button>
   </div>
-  <p class="foot">今天赚了吗 · v2.8 一眼看到钱 · 2026-11-14</p>
+  <p class="foot">今天赚了吗 · v2.9 也让他看见 · 2026-11-14</p>
 </section>
 </main>
 
@@ -2455,6 +2457,83 @@ $('subCal').onclick = async () => {
     toast('订阅失败：' + (e.message || e));
   }
 };
+$('shareBtn').onclick = async () => {
+  if(!AUTH.token) return toast('先登录一下');
+  const btn = $('shareBtn'), label = '发一个只读链接给别人（他点开就能看）';
+  btn.disabled = true; btn.textContent = '正在生成链接…';
+  try{
+    const r = await fetch(PUSH_API + '/share-link', {
+      headers: {'Authorization': 'Bearer ' + AUTH.token}
+    }).then(r => r.json());
+    if(!r.ok) throw new Error(r.error || '生成失败');
+    btn.disabled = false; btn.textContent = label;
+    showShare(r.url);
+    if(navigator.share){
+      try{
+        await navigator.share({
+          title: '他今天赚了吗',
+          text: '点开就能看他今天赚了多少、还有多久下班',
+          url: r.url
+        });
+        return;
+      }catch(e){ if(e && e.name === 'AbortError') return; }
+    }
+    copyText(r.url);
+  }catch(e){
+    btn.disabled = false; btn.textContent = label;
+    toast('生成失败：' + (e.message || e));
+  }
+};
+
+async function copyText(url){
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('链接已复制，发给他就行');
+  }catch(e){
+    prompt('复制这段链接发给他（他点开就能看，不用登录、不用装东西）', url);
+  }
+}
+
+function showShare(url){
+  const h = $('shareHint');
+  h.style.display = '';
+  h.textContent = '';
+  const tip = document.createElement('span');
+  tip.textContent = '只读链接：他只能看今天赚了多少、还有多久下班，改不了你的任何设置。';
+  h.appendChild(tip);
+  const code = document.createElement('code');
+  code.textContent = url;
+  code.style.display = 'block';
+  code.style.margin = '6px 0';
+  code.style.wordBreak = 'break-all';
+  code.style.color = 'var(--fg)';
+  code.onclick = () => copyText(url);
+  h.appendChild(code);
+  const row = document.createElement('span');
+  row.style.display = 'flex';
+  row.style.gap = '8px';
+  row.style.marginTop = '6px';
+  const cp = document.createElement('button');
+  cp.className = 'btn ghost'; cp.style.flex = '1'; cp.textContent = '复制链接';
+  cp.onclick = () => copyText(url);
+  const rv = document.createElement('button');
+  rv.className = 'btn ghost'; rv.style.flex = '1'; rv.textContent = '撤销';
+  rv.onclick = async () => {
+    if(!confirm('撤销后，已经发出去的链接会立刻打不开。确定？')) return;
+    try{
+      const r = await fetch(PUSH_API + '/share-revoke', {
+        method: 'POST', headers: {'Authorization': 'Bearer ' + AUTH.token, 'Content-Type': 'application/json'},
+        body: '{}'
+      }).then(r => r.json());
+      if(!r.ok) throw new Error(r.error || '撤销失败');
+      h.style.display = 'none';
+      toast(r.revoked ? '已撤销，老链接打不开了' : '本来就没有链接');
+    }catch(e){ toast('撤销失败：' + (e.message || e)); }
+  };
+  row.appendChild(cp); row.appendChild(rv);
+  h.appendChild(row);
+}
+
 $('icsBtn').onclick = async () => {
   const n = scheduledCount(62);
   if(!n){
@@ -2784,7 +2863,7 @@ $('pipBtn').onclick = openPip;
       reloading = true;
       location.reload();
     });
-    const check = () => navigator.serviceWorker.register('sw.js?v=12', { updateViaCache: 'none' })
+    const check = () => navigator.serviceWorker.register('sw.js?v=13', { updateViaCache: 'none' })
       .then(reg => reg.update().catch(() => {}))
       .catch(() => {});
     check();

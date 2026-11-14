@@ -13,6 +13,7 @@ import secrets
 import threading
 import time
 import traceback
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -69,6 +70,7 @@ def load_accounts():
     d.setdefault('users', {})
     d.setdefault('tokens', {})
     d.setdefault('ics', {})          # 订阅日历 token → 用户名，只新增不覆盖
+    d.setdefault('share', {})        # 只读分享 token → {user, created}，只新增不覆盖
     return d
 
 
@@ -177,6 +179,54 @@ def ensure_ics_token(user):
 def ics_owner(token):
     """订阅 token → 用户名。没有就是 None（老链接走静态文件兜底）。"""
     return (load_accounts().get('ics') or {}).get(token)
+
+
+def ensure_share_token(user):
+    """只读分享 token：给「别人手机上看我的进度」用。
+    同一个人重复调用拿到同一个 token，撤销后才会换新的。
+    这个 token 只能读 /api/today，读不到设置、排班表原文、账号密码。"""
+    with _lock:
+        acc = load_accounts()
+        for tk, rec in (acc.get('share') or {}).items():
+            if (rec or {}).get('user') == user:
+                return tk
+        snapshot_accounts()
+        tk = secrets.token_urlsafe(9).replace('-', 'a').replace('_', 'b')
+        acc['share'][tk] = {'user': user, 'created': datetime.now(TZ).strftime('%Y-%m-%d %H:%M')}
+        save_accounts(acc)
+        log('share token issued for', user)
+        return tk
+
+
+def share_owner(token):
+    """分享 token → 用户名。读不到就是链接已撤销。"""
+    rec = (load_accounts().get('share') or {}).get(token or '')
+    if not rec:
+        return None
+    return rec.get('user') if isinstance(rec, dict) else rec
+
+
+def revoke_share(user):
+    """撤销这个用户所有分享链接。已经发出去的老链接立刻失效。"""
+    with _lock:
+        acc = load_accounts()
+        share = acc.get('share') or {}
+        dead = [tk for tk, rec in share.items() if (rec or {}).get('user') == user]
+        for tk in dead:
+            share.pop(tk, None)
+        if dead:
+            save_accounts(acc)
+            log('share token revoked for', user, len(dead))
+        return len(dead)
+
+
+def query_one(handler, key, default=''):
+    """从 query string 取单个参数。"""
+    try:
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
+        return (q.get(key) or [default])[0]
+    except Exception:
+        return default
 
 
 # ---------------- 推送 ----------------
@@ -707,13 +757,36 @@ class Handler(BaseHTTPRequestHandler):
                                'saved': rec.get('saved', '')})
         if path in ('/api/today', '/today'):
             acc = load_accounts()
+            guest = query_one(self, 't').strip()
+            if guest:
+                # 只读分享链接：对方点开就能看，不用登录、不用装东西
+                user = share_owner(guest)
+                if not user:
+                    return self._json({'ok': False, 'error': 'link gone'}, 404)
+            else:
+                user = check_token(acc, bearer(self))
+                if not user:
+                    return self._json({'ok': False, 'error': 'unauthorized'}, 401)
+            blob = (acc['users'].get(user, {}) or {}).get('data') or {}
+            p = today_payload(blob.get('settings') or {}, blob.get('data') or {})
+            if guest:
+                # 对方只该看到「今天赚了多少、还剩多久」。
+                # 月薪、计薪天数这些没必要给出去，前端也用不到（日薪 dayTotal 已够显示）。
+                p.pop('salary', None)
+                p.pop('payDays', None)
+                p['guest'] = True          # 前端据此切只读模式，不显示「去登录」
+            else:
+                p['user'] = user
+            return self._json(p)
+        if path in ('/api/share-link', '/share-link'):
+            acc = load_accounts()
             user = check_token(acc, bearer(self))
             if not user:
                 return self._json({'ok': False, 'error': 'unauthorized'}, 401)
-            blob = (acc['users'].get(user, {}) or {}).get('data') or {}
-            p = today_payload(blob.get('settings') or {}, blob.get('data') or {})
-            p['user'] = user
-            return self._json(p)
+            tok = ensure_share_token(user)
+            host = (self.headers.get('Host') or 'xyt.zyserious.xyz').strip()
+            return self._json({'ok': True, 'token': tok,
+                               'url': 'https://%s/today.html?t=%s' % (host, tok)})
         if path in ('/api/cal-link', '/cal-link'):
             acc = load_accounts()
             user = check_token(acc, bearer(self))
@@ -803,6 +876,14 @@ class Handler(BaseHTTPRequestHandler):
                 acc['tokens'].pop(tk)
                 save_accounts(acc)
             return self._json({'ok': True})
+
+        if path in ('/api/share-revoke', '/share-revoke'):
+            acc = load_accounts()
+            user = check_token(acc, bearer(self))
+            if not user:
+                return self._json({'ok': False, 'error': 'unauthorized'}, 401)
+            n = revoke_share(user)
+            return self._json({'ok': True, 'revoked': n})
 
         if path in ('/api/data', '/data'):
             acc = load_accounts()

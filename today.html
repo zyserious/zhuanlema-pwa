@@ -35,6 +35,9 @@ body{
   transition:background .3s ease,color .3s ease;
 }
 header{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mute);min-height:20px}
+header .right{display:flex;align-items:center;gap:8px}
+header .ro{font-style:normal;font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--mute);letter-spacing:.5px}
+header .ro[hidden]{display:none}
 header .tag{display:flex;align-items:center;gap:6px;font-weight:500;color:var(--fg)}
 header .dot{width:7px;height:7px;border-radius:50%;background:var(--mute);opacity:.35}
 header .dot.live{background:#22C55E;opacity:1;animation:beat 2s ease-in-out infinite}
@@ -80,7 +83,7 @@ footer .hint{font-size:12px;color:var(--mute)}
 <body>
 <header>
   <span class="tag"><i class="dot" id="dot"></i><span id="shiftTag">—</span></span>
-  <span id="clock">--:--</span>
+  <span class="right"><i class="ro" id="ro" hidden>只读</i><span id="clock">--:--</span></span>
 </header>
 
 <main>
@@ -123,6 +126,15 @@ footer .hint{font-size:12px;color:var(--mute)}
   var API = './api/today';
   var REFRESH_MS = 60000;
 
+  // 只读分享模式：链接形如 today.html?t=xxxx，对方点开就能看，
+  // 不用登录、不用装 App、不用加主屏。只读，改不了任何数据。
+  var GUEST = (function(){
+    try{
+      var m = /[?&]t=([A-Za-z0-9_-]{4,64})/.exec(location.search || '');
+      return m ? m[1] : '';
+    }catch(e){ return ''; }
+  })();
+
   var el = {
     tag: document.getElementById('shiftTag'),
     dot: document.getElementById('dot'),
@@ -138,7 +150,8 @@ footer .hint{font-size:12px;color:var(--mute)}
     gate: document.getElementById('gate'),
     gateTitle: document.getElementById('gateTitle'),
     gateText: document.getElementById('gateText'),
-    gateBtn: document.getElementById('gateBtn')
+    gateBtn: document.getElementById('gateBtn'),
+    ro: document.getElementById('ro')
   };
 
   var CIRC = 2 * Math.PI * 84;
@@ -221,8 +234,10 @@ footer .hint{font-size:12px;color:var(--mute)}
       el.amt.textContent = money(earned);
       el.cur.style.visibility = 'visible';
       el.unit.textContent = '';
-      el.big.textContent = '还剩 ' + hms(remain);
-      el.sub.textContent = '今天目标 ' + money(p.dayTotal) + ' · 进度 ' + Math.round(paid * 100) + '%';
+      el.big.textContent = (GUEST ? '还有 ' : '还剩 ') + hms(remain);
+      el.sub.textContent = GUEST
+        ? '他还在上班 · 今天目标 ' + money(p.dayTotal)
+        : '今天目标 ' + money(p.dayTotal) + ' · 进度 ' + Math.round(paid * 100) + '%';
       el.foot.textContent = '已上 ' + hmsText((Number(p.paidSec) || 0) + elapse);
       if(remain <= 0) scheduleRefresh(3000);
       return;
@@ -235,7 +250,8 @@ footer .hint{font-size:12px;color:var(--mute)}
       el.amt.textContent = hms(until);
       el.unit.textContent = '距开工';
       var soon = until <= 1800;
-      el.big.textContent = soon ? '快上班了' : (p.window ? seg(p.window[0]) + ' 开工' : '等着开工');
+      el.big.textContent = soon ? (GUEST ? '他快上班了' : '快上班了')
+                                : (p.window ? seg(p.window[0]) + ' 开工' : '等着开工');
       el.sub.textContent = soon
         ? '还有 ' + hmsText(until) + ' · 今天目标 ' + money(p.dayTotal)
         : '今天目标 ' + money(p.dayTotal);
@@ -248,8 +264,10 @@ footer .hint{font-size:12px;color:var(--mute)}
       el.cur.style.visibility = 'visible';
       el.amt.textContent = money(p.dayTotal);
       el.unit.textContent = '今天赚完了';
-      el.big.textContent = '收工';
-      el.sub.textContent = '今天赚了 ' + money(p.dayTotal) + ' · 明天见';
+      el.big.textContent = GUEST ? '他收工了' : '收工';
+      el.sub.textContent = GUEST
+        ? '今天赚了 ' + money(p.dayTotal)
+        : '今天赚了 ' + money(p.dayTotal) + ' · 明天见';
       el.foot.textContent = p.windowText || '已完成';
       return;
     }
@@ -259,8 +277,8 @@ footer .hint{font-size:12px;color:var(--mute)}
     el.cur.style.visibility = 'hidden';
     el.amt.textContent = '休息';
     el.unit.textContent = '';
-    el.big.textContent = '今天不用上班';
-    el.sub.textContent = '好好歇着，明天再说';
+    el.big.textContent = GUEST ? '他今天休息' : '今天不用上班';
+    el.sub.textContent = GUEST ? '不用等他下班啦' : '好好歇着，明天再说';
     el.foot.textContent = '—';
   }
 
@@ -288,17 +306,35 @@ footer .hint{font-size:12px;color:var(--mute)}
     el.gate.classList.remove('hide');
   }
 
+  function cacheKey(){
+    return GUEST ? (CACHE_KEY + ':g:' + GUEST) : CACHE_KEY;
+  }
+
+  function applyGuestChrome(){
+    if(!GUEST) return;
+    el.ro.hidden = false;
+    document.title = '他今天赚了吗';
+    var a = document.querySelector('footer a');
+    if(a){ a.textContent = '我也来算一个'; }
+  }
+
   function load(){
     var tk = authToken();
-    if(!tk){
+    if(!GUEST && !tk){
       showGate('还没有登录',
         '这个页面读的是你账号里的班次和工资。先回完整版登录一次，之后从桌面图标打开就能直接看。',
         '去登录');
       return;
     }
-    fetch(API, { headers: { 'Authorization': 'Bearer ' + tk }, cache: 'no-store' })
+    var url = GUEST ? (API + '?t=' + encodeURIComponent(GUEST) +
+                       '&_=' + Date.now()) : API;
+    var opt = { cache: 'no-store' };
+    if(!GUEST) opt.headers = { 'Authorization': 'Bearer ' + tk };
+
+    fetch(url, opt)
       .then(function(r){
         if(r.status === 401) throw new Error('401');
+        if(r.status === 404) throw new Error('404');
         return r.json();
       })
       .then(function(d){
@@ -307,14 +343,20 @@ footer .hint{font-size:12px;color:var(--mute)}
         stamp = Date.now();
         offline = false;
         el.gate.classList.add('hide');
-        try{ localStorage.setItem(CACHE_KEY, JSON.stringify(d)); }catch(e){}
+        try{ localStorage.setItem(cacheKey(), JSON.stringify(d)); }catch(e){}
         render();
         setBadge(d);
         scheduleRefresh(REFRESH_MS);
       })
       .catch(function(e){
         var cached = null;
-        try{ cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); }catch(err){}
+        try{ cached = JSON.parse(localStorage.getItem(cacheKey()) || 'null'); }catch(err){}
+        if(e && e.message === '404'){
+          state = null;
+          showGate('这个链接失效了',
+            '分享的人把它撤销了。让他重新发一条链接给你就行。', '知道了');
+          return;
+        }
         if(e && e.message === '401'){
           state = null;
           showGate('登录过期了', '回完整版重新登录一次，回来就正常了。', '重新登录');
@@ -355,9 +397,14 @@ footer .hint{font-size:12px;color:var(--mute)}
   });
 
   if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
-    navigator.serviceWorker.register('sw.js?v=12', { updateViaCache: 'none' }).catch(function(){});
+    navigator.serviceWorker.register('sw.js?v=13', { updateViaCache: 'none' }).catch(function(){});
   }
 
+  el.gateBtn.addEventListener('click', function(ev){
+    if(GUEST){ ev.preventDefault(); el.gate.classList.add('hide'); }
+  });
+
+  applyGuestChrome();
   load();
 })();
 </script>

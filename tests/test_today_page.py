@@ -49,7 +49,13 @@ CASES = {
     'off': dict(BASE, status='off', shift='x', shiftName='休息', shiftEmoji='😴',
                 window=None, windowText='', earned=0.0, remaining=0, progress=0.0,
                 remainSec=0, paidSec=0),
+    # 只读分享链接：对方不登录、不装东西，靠 URL 里的 t 参数读
+    'guest': dict(BASE, guest=True),
 }
+
+# 只读用例要走 ?t= 链接；其余走登录态
+GUEST_CASE = 'guest'
+GUEST_TOKEN = 'probetoken'
 
 INJECT = """<script>
 try{ localStorage.setItem('auth', JSON.stringify({token:'probe-token',user:'probe'})); }catch(e){}
@@ -125,7 +131,10 @@ def main():
 
         results = {}
         for name in CASES:
-            dom = dump('http://127.0.0.1:%d/__probe_%s.html' % (PORT, name))
+            url = 'http://127.0.0.1:%d/__probe_%s.html' % (PORT, name)
+            if name == GUEST_CASE:
+                url += '?t=' + GUEST_TOKEN
+            dom = dump(url)
             txt = text_of(dom)
             results[name] = (dom, txt)
 
@@ -160,6 +169,21 @@ def main():
         d, t = results['off']
         check('off', '今天不用上班' in t, '休息日文案不对')
         check('off', '休息' in t, '缺少休息标记')
+
+        d, t = results['guest']
+        ro_on = not re.search(r'id="ro"[^>]*hidden', d)
+        check('guest', ro_on, '只读模式没标记出来')
+        check('guest', '还有' in t, '只读模式应说「还有」而不是「还剩」：%r' % t[:120])
+        check('guest', '他还在上班' in t, '只读模式缺少第三人称说明')
+        check('guest', '我也来算一个' in t, '只读模式底栏没换成「我也来算一个」')
+        check('guest', 'hide' in (re.search(r'id="gate" class="([^"]*)"', d) or ['', ''])[1],
+              '只读链接不该弹登录提示')
+        check('guest', '154.' in t, '只读模式没拿到金额')
+
+        for name in ('working', 'done'):
+            dd = results[name][0]
+            check(name, re.search(r'id="ro"[^>]*hidden', dd),
+                  '非只读模式不该显示「只读」标记')
 
         if '--shot' in sys.argv:
             d = os.path.join(ROOT, '.shots')

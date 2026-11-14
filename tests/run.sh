@@ -14,6 +14,8 @@ if command -v python >/dev/null 2>&1; then
   echo "PASS  日历状态矩阵（上班前倒计时 / 上班中金额 / 休息日静默）"
   python test_push_schedule.py > /dev/null
   echo "PASS  推送时段矩阵（30/10 分钟两档 + 跨午夜收工 + 未排班静默）"
+  python test_share.py > /dev/null
+  echo "PASS  只读分享链接（签发幂等 / 免登录可读 / 撤销失效 / 设置零改动）"
 else
   echo "  skip python 用例（没装 python）"
 fi
